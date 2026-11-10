@@ -33,7 +33,22 @@ jobs:
           AUTO_PUBLISH: "False"
           POSTS_PER_DAY: "1"
           REGION: PK
+          REQUEST_TIMEOUT: "90"
         run: python main.py --generate --limit 1
+      - name: Verify a draft was created
+        run: |
+          python - <<'PY'
+          import sqlite3
+          import sys
+
+          connection = sqlite3.connect("data/engine.sqlite3")
+          count = connection.execute(
+              "SELECT COUNT(*) FROM articles WHERE status = 'draft'"
+          ).fetchone()[0]
+          connection.close()
+          print(f"{count} draft(s) recorded.")
+          sys.exit(0 if count else 1)
+          PY
       - name: Upload file-mode drafts
         if: always()
         uses: actions/upload-artifact@v4
