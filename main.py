@@ -23,7 +23,13 @@ from refresh import queue_refreshes
 from report import build_report
 from social import share_published
 from topic_finder import find_overlapping_page, find_topics, queue_overlap_refresh
-from writer import GeminiWriter, WriterError, list_generate_content_models, load_business_facts
+from writer import (
+    GeminiHTTPError,
+    GeminiWriter,
+    WriterError,
+    list_generate_content_models,
+    load_business_facts,
+)
 from wp_client import WordPressClient, WordPressError
 
 
@@ -342,6 +348,9 @@ def generate_drafts(
         except Exception as exc:
             logging.exception("Draft generation failed for topic %r", topic["keyword"])
             db.record_run(connection, step, "failed", str(exc))
+            if isinstance(exc, GeminiHTTPError) and exc.status_code == 429:
+                logging.error("Gemini quota is exhausted; stopping topic generation for this run.")
+                break
 
     if ready:
         label = "draft" if len(ready) == 1 else "drafts"
@@ -374,6 +383,11 @@ def generate_drafts(
                 "success" if delivered else "failed",
                 "Draft summary delivered." if delivered else "Draft summary notification failed; see log.",
             )
+    if settings.auto_publish and not ready:
+        raise RuntimeError(
+            "AUTO_PUBLISH is enabled, but no article was successfully published. "
+            "Check the preceding topic errors and confirm a live post before retrying."
+        )
     return ready
 
 

@@ -12,6 +12,7 @@ from db import connect
 from images import HEIGHT, WIDTH, create_featured_image
 from interlinker import add_internal_links
 from main import generate_drafts
+from writer import GeminiHTTPError
 from wp_client import DraftResult, WordPressClient
 
 
@@ -231,3 +232,22 @@ def test_generate_records_wordpress_live_publication(settings):
     assert article["status"] == "published"
     assert article["wp_post_id"] == 77
     assert article["published_at"]
+
+
+def test_auto_publish_generation_fails_when_gemini_quota_is_exhausted(settings):
+    from dataclasses import replace
+
+    class QuotaLimitedWriter:
+        def generate(self, *args, **kwargs):
+            raise GeminiHTTPError(429, "quota exceeded")
+
+    publishing_settings = replace(settings, auto_publish=True)
+    with pytest.raises(RuntimeError, match="no article was successfully published"):
+        generate_drafts(
+            publishing_settings,
+            connect(":memory:"),
+            writer=QuotaLimitedWriter(),
+            client=type("Publisher", (), {"mode": "jwt"})(),
+            existing_posts=[],
+            limit=1,
+        )
