@@ -1,0 +1,16 @@
+.env
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+data/
+logs/
+drafts/
+*.sqlite3
+*.db
+service-account*.json
+*service-account*.json
+client_secret.json
+token.pickle
+service_account.json

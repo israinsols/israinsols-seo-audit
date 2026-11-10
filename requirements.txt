@@ -1,0 +1,8 @@
+requests>=2.31,<3
+python-dotenv>=1.0,<2
+pytest>=8,<9
+pytrends>=4.9.2,<5
+Pillow>=10,<12
+google-api-python-client>=2.150,<3
+google-auth>=2.36,<3
+google-auth-oauthlib>=1.2,<2
