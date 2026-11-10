@@ -295,47 +295,75 @@ def generate_drafts(
             article["featured_image_path"] = str(image.path)
             article["image_alt"] = image.alt_text
             draft = wp.create_draft(article)
+            if settings.auto_publish and draft.status != "publish":
+                raise WordPressError(
+                    None,
+                    "AUTO_PUBLISH=True but WordPress did not confirm a live published post.",
+                )
             if wp.mode == "file" and wp.fallback_reason:
-                logging.error("WordPress rejected a request; saved draft in file mode. Reason: %s", wp.fallback_reason)
+                logging.error(
+                    "WordPress rejected a request; saved draft in file mode. Reason: %s",
+                    wp.fallback_reason,
+                )
+            article_status = "published" if draft.status == "publish" else "draft"
+            published_at = date.today().isoformat() if article_status == "published" else None
             connection.execute(
                 """INSERT INTO articles
-                   (topic_id, wp_post_id, title, slug, status, word_count, created_at)
-                   VALUES (?, ?, ?, ?, 'draft', ?, ?)""",
+                   (topic_id, wp_post_id, title, slug, status, word_count, created_at, published_at)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                 (
                     topic["id"],
                     draft.post_id,
                     title,
                     slug,
+                    article_status,
                     word_count(article["html"]),
                     date.today().isoformat(),
+                    published_at,
                 ),
             )
             connection.execute("UPDATE topics SET status = 'used' WHERE id = ?", (topic["id"],))
             connection.commit()
             item = {
                 "title": title,
+                "status": draft.status,
                 "verify_claims": article.get("verify_claims", []),
                 "file_path": str(draft.file_path) if draft.file_path else None,
                 "image_path": str(image.path),
                 "word_count": result.word_count,
             }
             ready.append(item)
-            logging.info("Draft ready: %s | verify claims: %s", title, item["verify_claims"])
-            db.record_run(connection, step, "success", f"Draft created: {title}")
+            if draft.status == "publish":
+                logging.info("Article published live: %s | post ID: %s", title, draft.post_id)
+                db.record_run(connection, step, "success", f"Article published live: {title}")
+            else:
+                logging.info("Draft ready: %s | verify claims: %s", title, item["verify_claims"])
+                db.record_run(connection, step, "success", f"Draft created: {title}")
         except Exception as exc:
             logging.exception("Draft generation failed for topic %r", topic["keyword"])
             db.record_run(connection, step, "failed", str(exc))
 
     if ready:
         label = "draft" if len(ready) == 1 else "drafts"
-        logging.info("%s %s ready:", len(ready), label)
+        if settings.auto_publish:
+            logging.info("%s article(s) published live:", len(ready))
+        else:
+            logging.info("%s %s ready:", len(ready), label)
         for item in ready:
-            logging.info("- %s | verify_claims: %s", item["title"], item["verify_claims"])
+            logging.info("- %s | status: %s", item["title"], item["status"])
         if settings.telegram_enabled:
-            lines = [f"{len(ready)} draft(s) ready for human review:"]
+            heading = (
+                f"{len(ready)} article(s) published live:"
+                if settings.auto_publish
+                else f"{len(ready)} draft(s) ready for human review:"
+            )
+            lines = [heading]
             for item in ready:
-                claims = "; ".join(item["verify_claims"])
-                lines.append(f"- {item['title']} | verify claims: {claims}")
+                if settings.auto_publish:
+                    lines.append(f"- {item['title']} | status: {item['status']}")
+                else:
+                    claims = "; ".join(item["verify_claims"])
+                    lines.append(f"- {item['title']} | verify claims: {claims}")
             message = "\n".join(lines)
             if len(message) > 3900:
                 message = message[:3880].rsplit("\n", 1)[0] + "\n... (message shortened)"

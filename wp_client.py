@@ -332,8 +332,14 @@ class WordPressClient:
         return category_ids, tag_ids
 
     def create_draft(self, article: dict[str, Any]) -> DraftResult:
-        """Create a WordPress draft, uploading media and terms as needed."""
+        """Create a draft or explicitly enabled live post, uploading media and terms."""
         if self._mode == "file":
+            if self.settings.auto_publish:
+                raise WordPressError(
+                    None,
+                    "AUTO_PUBLISH=True requires an authenticated WordPress connection; "
+                    "file mode cannot publish live posts.",
+                )
             return self.save_file_draft(article)
         title = str(article.get("title", "")).strip()
         if not title:
@@ -357,7 +363,7 @@ class WordPressClient:
             "title": title,
             "slug": slug,
             "content": str(article.get("html", "")),
-            "status": "draft",
+            "status": "publish" if self.settings.auto_publish else "draft",
             "excerpt": str(article.get("meta_description", "")),
         }
         if category_ids:
@@ -398,7 +404,18 @@ class WordPressClient:
             raise WordPressError(response.status_code, "Post endpoint returned invalid JSON.") from exc
         if not isinstance(result, dict) or not isinstance(result.get("id"), int):
             raise WordPressError(response.status_code, "Post creation response did not include an ID.")
-        return DraftResult(post_id=result["id"], status="draft")
+        expected_status = "publish" if self.settings.auto_publish else "draft"
+        status = result.get("status")
+        confirmed_status = status == expected_status if self.settings.auto_publish else status in {
+            None,
+            expected_status,
+        }
+        if not confirmed_status:
+            raise WordPressError(
+                response.status_code,
+                f"WordPress returned status {status!r}; expected {expected_status!r}.",
+            )
+        return DraftResult(post_id=result["id"], status=status or expected_status)
 
     def save_file_draft(self, article: dict[str, Any]) -> DraftResult:
         """Write article HTML and its metadata beside one another without overwriting."""

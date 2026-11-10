@@ -201,3 +201,33 @@ def test_generate_supports_wordpress_draft_client(settings):
         limit=1,
     )
     assert len(ready) == 1
+
+
+def test_generate_records_wordpress_live_publication(settings):
+    from dataclasses import replace
+
+    publishing_settings = replace(settings, auto_publish=True)
+
+    class FakePublisher:
+        mode = "jwt"
+
+        def create_draft(self, article):
+            return DraftResult(post_id=77, status="publish")
+
+    connection = connect(":memory:")
+    ready = generate_drafts(
+        publishing_settings,
+        connection,
+        writer=FakeWriter(),
+        client=FakePublisher(),
+        existing_posts=[],
+        limit=1,
+    )
+    assert len(ready) == 1
+    assert ready[0]["status"] == "publish"
+    article = connection.execute(
+        "SELECT status, wp_post_id, published_at FROM articles WHERE wp_post_id=77"
+    ).fetchone()
+    assert article["status"] == "published"
+    assert article["wp_post_id"] == 77
+    assert article["published_at"]

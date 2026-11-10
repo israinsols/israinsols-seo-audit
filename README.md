@@ -1,9 +1,10 @@
 # IsrainSols SEO Traffic Engine
 
 The engine researches topics, prepares articles, and creates WordPress drafts or
-local files. A person reviews and publishes every article. Automatic publishing,
-click automation, artificial traffic, proxies, and paid SEO services are not used.
-`AUTO_PUBLISH=False` is the default.
+local files. Automatic publishing is disabled by default (`AUTO_PUBLISH=False`).
+When explicitly enabled, it can publish to WordPress after the configured
+quality checks. No click automation, artificial traffic, proxies, or paid SEO
+services are used.
 
 The default research region is Pakistan (`REGION=PK`), the audience is small
 businesses and startups in Pakistan, and the daily draft cap is one. Topics are
@@ -43,7 +44,7 @@ python main.py --check-gemini
 ## WordPress
 
 `WP_AUTH_MODE=file` saves HTML, JSON metadata, and the featured image locally;
-it makes no WordPress requests. Use this mode first.
+it makes no WordPress requests. Use this mode for local draft-only runs.
 
 For JWT mode, configure a JWT authentication plugin on WordPress, generate a
 strong plugin secret, and define that secret in `wp-config.php` (follow the
@@ -167,18 +168,22 @@ Example (edit the absolute project path and local time zone):
 
 ### GitHub Actions
 
-`.github/workflows/daily.yml` runs one non-interactive draft generation per
-day. Configure `GEMINI_API_KEY` in **Settings → Secrets and variables →
-Actions**. To send drafts directly into WordPress, also configure `WP_USER` and
-`WP_PASSWORD` there for the dedicated Editor account; the workflow then uses
-JWT authentication. If either WordPress secret is absent, it safely uses file
-mode and uploads the HTML, JSON metadata, and image as a downloadable workflow
-artifact. Never put credentials in the workflow file.
+`.github/workflows/daily.yml` is configured to publish one article per day
+after quality checks. Add `GEMINI_API_KEY` (already configured in this
+repository), `WP_USER`, and `WP_PASSWORD` in **Settings → Secrets and variables
+→ Actions**. The WordPress values must belong to the dedicated Editor account;
+the workflow verifies JWT connection before generating content and fails
+without publishing if credentials are missing or WordPress rejects them.
+Never put credentials in the workflow file or commit `.env`.
 
-The workflow always creates WordPress **drafts** (`AUTO_PUBLISH=False`); it
-never publishes live posts. GSC OAuth, reports, refresh, and social sharing do
-not run in GitHub Actions. Search Console OAuth runs locally unless an optional
-service account is explicitly configured.
+The workflow sets `AUTO_PUBLISH=True`, which is an intentional exception to
+the default human-reviewed draft flow. Articles that pass automated checks are
+published live without manual review. This can publish inaccurate or
+insufficiently verified claims; use it only if that risk is accepted. Other
+local runs remain draft-only unless `AUTO_PUBLISH=True` is explicitly set.
+GSC OAuth, reports, refresh, and social sharing do not run in GitHub Actions.
+Search Console OAuth runs locally unless an optional service account is
+explicitly configured.
 
 ## Weekly routine
 

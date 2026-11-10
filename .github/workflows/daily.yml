@@ -24,18 +24,34 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Generate one human-review draft
+      - name: Require WordPress publishing credentials
+        env:
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+        run: |
+          if [ -z "$WP_USER" ] || [ -z "$WP_PASSWORD" ]; then
+            echo "::error::Set WP_USER and WP_PASSWORD in repository Actions secrets before enabling live publication."
+            exit 1
+          fi
+      - name: Verify WordPress connection
+        env:
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+          WP_AUTH_MODE: jwt
+          REQUEST_TIMEOUT: "90"
+        run: python main.py --check-wp
+      - name: Generate and publish one article
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
-          WP_AUTH_MODE: ${{ secrets.WP_USER != '' && secrets.WP_PASSWORD != '' && 'jwt' || 'file' }}
-          AUTO_PUBLISH: "False"
+          WP_AUTH_MODE: jwt
+          AUTO_PUBLISH: "True"
           POSTS_PER_DAY: "1"
           REGION: PK
           REQUEST_TIMEOUT: "90"
         run: python main.py --generate --limit 1
-      - name: Verify a draft was created
+      - name: Verify a live article was published
         run: |
           python - <<'PY'
           import sqlite3
@@ -43,13 +59,14 @@ jobs:
 
           connection = sqlite3.connect("data/engine.sqlite3")
           count = connection.execute(
-              "SELECT COUNT(*) FROM articles WHERE status = 'draft'"
+              "SELECT COUNT(*) FROM articles WHERE status = 'published' "
+              "AND wp_post_id IS NOT NULL AND substr(created_at, 1, 10) = date('now')"
           ).fetchone()[0]
           connection.close()
-          print(f"{count} draft(s) recorded.")
+          print(f"{count} live published article(s) recorded.")
           sys.exit(0 if count else 1)
           PY
-      - name: Upload file-mode drafts
+      - name: Upload local fallback files if present
         if: always()
         uses: actions/upload-artifact@v4
         with:

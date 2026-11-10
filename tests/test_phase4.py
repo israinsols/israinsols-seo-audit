@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 import pytest
 import requests
@@ -8,7 +9,7 @@ import requests
 from config import load_settings
 from indexing import INDEXNOW_ENDPOINT, INDEXNOW_KEY_FILE_INSTRUCTIONS, notify_published_url
 from notifier import TelegramNotifier
-from wp_client import WordPressClient
+from wp_client import WordPressClient, WordPressError
 
 
 class FakeResponse:
@@ -103,6 +104,39 @@ def test_jwt_uploads_featured_image_alt_taxonomies_and_creates_draft(settings, t
     assert payload["categories"] == [3]
     assert payload["tags"] == [8]
     assert payload["meta"]["rank_math_focus_keyword"] == "website cost"
+
+
+def test_auto_publish_sends_live_status_and_requires_wordpress_confirmation(settings):
+    publishing_settings = replace(settings, auto_publish=True)
+    session = FakeSession([
+        FakeResponse(payload={"token": "jwt-token"}),
+        FakeResponse(payload={"id": 77, "status": "publish"}),
+    ])
+    client = WordPressClient(publishing_settings, session=session)
+    result = client.create_draft({
+        "title": "Website planning",
+        "slug": "website-planning",
+        "html": "<p>Educational article.</p>",
+    })
+    post_request = next(call for call in session.calls if call[1].endswith("/wp/v2/posts"))
+    assert post_request[2]["json"]["status"] == "publish"
+    assert result.post_id == 77
+    assert result.status == "publish"
+
+
+def test_auto_publish_refuses_file_mode_and_unconfirmed_wordpress_status(settings):
+    publishing_settings = replace(settings, auto_publish=True, wp_auth_mode="file")
+    client = WordPressClient(publishing_settings)
+    with pytest.raises(WordPressError, match="file mode cannot publish live posts"):
+        client.create_draft({"title": "No fallback publishing"})
+
+    session = FakeSession([
+        FakeResponse(payload={"token": "jwt-token"}),
+        FakeResponse(payload={"id": 78, "status": "draft"}),
+    ])
+    client = WordPressClient(replace(settings, auto_publish=True), session=session)
+    with pytest.raises(WordPressError, match="expected 'publish'"):
+        client.create_draft({"title": "Status must be confirmed"})
 
 
 def test_upload_auth_failure_falls_back_to_local_draft(settings, tmp_path):
