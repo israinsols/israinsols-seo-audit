@@ -128,6 +128,20 @@ def build_report(
     query_rows = _aggregate(query_records, "query")
     page_rows = _aggregate(page_records, "url")
     brand_queries = [item for item in query_rows if _is_brand_query(item["query"])]
+    brand_clicks = sum(item["clicks"] for item in brand_queries)
+    brand_impressions = sum(item["impressions"] for item in brand_queries)
+    brand_position_weight = sum(max(item["impressions"], 1) for item in brand_queries)
+    brand_totals = {
+        "clicks": brand_clicks,
+        "impressions": brand_impressions,
+        "ctr": brand_clicks / brand_impressions if brand_impressions else 0,
+        "position": (
+            sum(item["position"] * max(item["impressions"], 1) for item in brand_queries)
+            / brand_position_weight
+            if brand_position_weight
+            else 0
+        ),
+    }
     buckets = {key: 0 for key in ("1-3", "4-10", "11-20", "21+")}
     for item in page_rows:
         buckets[_position_bucket(item["position"])] += 1
@@ -150,14 +164,20 @@ def build_report(
         f"position {item['position']:.1f}"
         for item in query_rows[:10]
     )
-    summary.extend(["", "Branded queries:"])
+    summary.extend(["", "Branded query totals:"])
+    if brand_queries:
+        summary.append(
+            f"- {brand_totals['clicks']} clicks, {brand_totals['impressions']} impressions, "
+            f"{brand_totals['ctr']:.1%} CTR, position {brand_totals['position']:.1f}"
+        )
+    else:
+        summary.append("- No branded queries recorded in this period.")
+    summary.append("Branded queries by spelling:")
     summary.extend(
         f"- {item['query']}: {item['clicks']} clicks, {item['impressions']} impressions, "
         f"{item['ctr']:.1%} CTR, position {item['position']:.1f}"
         for item in brand_queries
     )
-    if not brand_queries:
-        summary.append("- No branded queries recorded in this period.")
     summary.extend(["", "Top pages:"])
     summary.extend(
         f"- {item['url']}: {item['clicks']} clicks, {item['impressions']} impressions, "
@@ -199,6 +219,7 @@ def build_report(
         "summary": summary_text,
         "queries": query_rows,
         "brand_queries": brand_queries,
+        "brand_totals": brand_totals,
         "pages": page_rows,
         "buckets": buckets,
         "quick_wins": quick_wins,

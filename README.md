@@ -85,9 +85,10 @@ of the Search Console property, and run a GSC command. Protect and never commit
 that JSON. Service-account access is not enabled by default.
 The weekly report includes a separate branded-query section for searches
 containing “israinsols.com”, “IsrainSols”, “Israin Sols”, “IsrainSolutions”, or
-“Israin Solutions”, with clicks, impressions, CTR, and average position. This
-helps track brand-search visibility separately from service-topic queries;
-Google does not guarantee impressions or rankings.
+“Israin Solutions”. It reports combined brand clicks, impressions, CTR, and
+impression-weighted average position, plus each spelling separately. This helps
+track brand-search visibility separately from service-topic queries; Google
+does not guarantee impressions or rankings.
 
 ## Business facts and duplicate-page prevention
 

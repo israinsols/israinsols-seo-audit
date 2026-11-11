@@ -303,7 +303,15 @@ def test_report_writes_csv_text_buckets_and_prioritizes_topics(tmp_path):
         "israinsols.com",
         "IsrainSolutions",
     }
-    assert "Branded queries:" in report["summary"]
+    assert report["brand_totals"] == {
+        "clicks": 7,
+        "impressions": 130,
+        "ctr": 7 / 130,
+        "position": 370 / 130,
+    }
+    assert "Branded query totals:" in report["summary"]
+    assert "7 clicks, 130 impressions, 5.4% CTR, position 2.8" in report["summary"]
+    assert "Branded queries by spelling:" in report["summary"]
     assert "Israin Solutions: 3 clicks, 60 impressions, 5.0% CTR, position 2.0" in report["summary"]
     with open(report["csv_path"], newline="", encoding="utf-8-sig") as file:
         rows = list(csv.DictReader(file))
@@ -329,6 +337,12 @@ def test_report_dry_run_does_not_write_files_or_prioritize(tmp_path):
     assert not (tmp_path / "reports").exists()
     assert connection.execute("SELECT COUNT(*) FROM topics").fetchone()[0] == 0
     assert report["brand_queries"] == []
+    assert report["brand_totals"] == {
+        "clicks": 0,
+        "impressions": 0,
+        "ctr": 0,
+        "position": 0,
+    }
     assert "No branded queries recorded in this period." in report["summary"]
 
 
