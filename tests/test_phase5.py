@@ -283,12 +283,23 @@ def test_report_writes_csv_text_buckets_and_prioritizes_topics(tmp_path):
                        impressions=impressions, position=position)
         _insert_metric(connection, url, "", today.isoformat(), clicks=clicks,
                        impressions=impressions, position=position)
+    _insert_metric(connection, "", "Israin Solutions", today.isoformat(),
+                   clicks=3, impressions=60, position=2)
     connection.commit()
     report = build_report(connection, output_dir=tmp_path / "reports", as_of=today)
     assert report["buckets"] == {"1-3": 1, "4-10": 1, "11-20": 1, "21+": 1}
     assert len(report["quick_wins"]) == 2
     assert report["topics_prioritized"] == 2
     assert "Top queries:" in report["summary"] and "Top pages:" in report["summary"]
+    assert report["brand_queries"] == [{
+        "query": "Israin Solutions",
+        "clicks": 3,
+        "impressions": 60,
+        "ctr": 0.05,
+        "position": 2.0,
+    }]
+    assert "Branded queries:" in report["summary"]
+    assert "Israin Solutions: 3 clicks, 60 impressions, 5.0% CTR, position 2.0" in report["summary"]
     with open(report["csv_path"], newline="", encoding="utf-8-sig") as file:
         rows = list(csv.DictReader(file))
     assert {row["type"] for row in rows} == {"query", "page"}
@@ -312,6 +323,8 @@ def test_report_dry_run_does_not_write_files_or_prioritize(tmp_path):
     assert report["csv_path"] is None
     assert not (tmp_path / "reports").exists()
     assert connection.execute("SELECT COUNT(*) FROM topics").fetchone()[0] == 0
+    assert report["brand_queries"] == []
+    assert "No branded queries recorded in this period." in report["summary"]
 
 
 def test_social_sends_only_published_and_deduplicates(settings):

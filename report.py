@@ -10,6 +10,8 @@ from pathlib import Path
 from config import NICHE_CLUSTERS
 from topic_finder import matches_cluster
 
+BRAND_QUERY_TERMS = ("israinsols", "israin sols", "israin solutions")
+
 
 def _aggregate(rows: list, key: str) -> list[dict]:
     groups: dict[str, dict] = defaultdict(
@@ -56,6 +58,11 @@ def _cluster_for_query(query: str) -> str | None:
         if matches_cluster(query, cluster):
             return cluster
     return None
+
+
+def _is_brand_query(query: str) -> bool:
+    normalized = " ".join(query.casefold().split())
+    return any(term in normalized for term in BRAND_QUERY_TERMS)
 
 
 def prioritize_winning_queries(connection, queries: list[dict]) -> int:
@@ -114,6 +121,7 @@ def build_report(
         page_records = [row for row in records if row["url"]]
     query_rows = _aggregate(query_records, "query")
     page_rows = _aggregate(page_records, "url")
+    brand_queries = [item for item in query_rows if _is_brand_query(item["query"])]
     buckets = {key: 0 for key in ("1-3", "4-10", "11-20", "21+")}
     for item in page_rows:
         buckets[_position_bucket(item["position"])] += 1
@@ -132,6 +140,14 @@ def build_report(
         f"position {item['position']:.1f}"
         for item in query_rows[:10]
     )
+    summary.extend(["", "Branded queries:"])
+    summary.extend(
+        f"- {item['query']}: {item['clicks']} clicks, {item['impressions']} impressions, "
+        f"{item['ctr']:.1%} CTR, position {item['position']:.1f}"
+        for item in brand_queries
+    )
+    if not brand_queries:
+        summary.append("- No branded queries recorded in this period.")
     summary.extend(["", "Top pages:"])
     summary.extend(
         f"- {item['url']}: {item['clicks']} clicks, {item['impressions']} impressions, "
@@ -172,6 +188,7 @@ def build_report(
         **summary_result,
         "summary": summary_text,
         "queries": query_rows,
+        "brand_queries": brand_queries,
         "pages": page_rows,
         "buckets": buckets,
         "quick_wins": quick_wins,

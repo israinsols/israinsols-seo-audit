@@ -83,6 +83,11 @@ Optional service-account access: set `GSC_SERVICE_ACCOUNT_FILE` to the local
 service-account JSON path in `.env`, add the service-account email as a user
 of the Search Console property, and run a GSC command. Protect and never commit
 that JSON. Service-account access is not enabled by default.
+The weekly report includes a separate branded-query section for searches
+containing “IsrainSols”, “Israin Sols”, or “Israin Solutions”, with clicks,
+impressions, CTR, and average position. This helps track brand-search visibility
+separately from service-topic queries; Google does not guarantee impressions or
+rankings.
 
 ## Business facts and duplicate-page prevention
 
