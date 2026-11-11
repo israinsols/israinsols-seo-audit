@@ -88,7 +88,9 @@ containing “israinsols.com”, “IsrainSols”, “Israin Sols”, “IsrainS
 “Israin Solutions”. It reports combined brand clicks, impressions, CTR, and
 impression-weighted average position, plus each spelling separately. This helps
 track brand-search visibility separately from service-topic queries; Google
-does not guarantee impressions or rankings.
+does not guarantee impressions or rankings. The text report is formatted as an
+executive summary with KPI highlights, aligned query/page tables, ranking
+distribution, and non-brand content opportunities.
 
 ## Business facts and duplicate-page prevention
 

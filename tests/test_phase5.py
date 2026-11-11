@@ -296,7 +296,10 @@ def test_report_writes_csv_text_buckets_and_prioritizes_topics(tmp_path):
     assert report["buckets"] == {"1-3": 1, "4-10": 1, "11-20": 1, "21+": 1}
     assert len(report["quick_wins"]) == 2
     assert report["topics_prioritized"] == 2
-    assert "Top queries:" in report["summary"] and "Top pages:" in report["summary"]
+    assert "ISRAINSOLS | ORGANIC SEARCH PERFORMANCE" in report["summary"]
+    assert "TOP SEARCH QUERIES" in report["summary"]
+    assert "TOP LANDING PAGES" in report["summary"]
+    assert "CONTENT OPPORTUNITIES" in report["summary"]
     assert {item["query"] for item in report["brand_queries"]} == {
         "Israin Solutions",
         "IsrainSols",
@@ -309,10 +312,18 @@ def test_report_writes_csv_text_buckets_and_prioritizes_topics(tmp_path):
         "ctr": 7 / 130,
         "position": 370 / 130,
     }
-    assert "Branded query totals:" in report["summary"]
-    assert "7 clicks, 130 impressions, 5.4% CTR, position 2.8" in report["summary"]
-    assert "Branded queries by spelling:" in report["summary"]
-    assert "Israin Solutions: 3 clicks, 60 impressions, 5.0% CTR, position 2.0" in report["summary"]
+    assert (
+        "Brand performance: 7 clicks | 130 impressions | 5.4% CTR | "
+        "average position 2.8"
+    ) in report["summary"]
+    assert any(
+        "Search query" in line and "Clicks" in line and "Avg. position" in line
+        for line in report["summary"].splitlines()
+    )
+    assert any(
+        "Israin Solutions" in line and "60" in line and "5.0%" in line
+        for line in report["summary"].splitlines()
+    )
     with open(report["csv_path"], newline="", encoding="utf-8-sig") as file:
         rows = list(csv.DictReader(file))
     assert {row["type"] for row in rows} == {"query", "page"}
@@ -343,7 +354,21 @@ def test_report_dry_run_does_not_write_files_or_prioritize(tmp_path):
         "ctr": 0,
         "position": 0,
     }
-    assert "No branded queries recorded in this period." in report["summary"]
+    assert "No branded queries were recorded in this reporting period." in report["summary"]
+
+
+def test_report_professional_summary_handles_no_metrics(tmp_path):
+    connection = connect(":memory:")
+    report = build_report(
+        connection,
+        output_dir=tmp_path / "reports",
+        as_of=date(2026, 11, 10),
+        dry_run=True,
+    )
+    assert "Search queries tracked: 0 | Landing pages tracked: 0" in report["summary"]
+    assert "No query data was available for this period." in report["summary"]
+    assert "No landing-page data was available for this period." in report["summary"]
+    assert "No non-brand queries in positions 4-20 were found." in report["summary"]
 
 
 def test_social_sends_only_published_and_deduplicates(settings):

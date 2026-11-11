@@ -71,6 +71,22 @@ def _is_brand_query(query: str) -> bool:
     return any(term in normalized for term in BRAND_QUERY_TERMS)
 
 
+def _render_table(headers: tuple[str, ...], rows: list[tuple[str, ...]]) -> list[str]:
+    widths = [
+        max(len(header), *(len(row[index]) for row in rows))
+        for index, header in enumerate(headers)
+    ]
+    lines = [
+        " | ".join(header.ljust(widths[index]) for index, header in enumerate(headers)),
+        "-+-".join("-" * width for width in widths),
+    ]
+    lines.extend(
+        " | ".join(value.ljust(widths[index]) for index, value in enumerate(row))
+        for row in rows
+    )
+    return lines
+
+
 def prioritize_winning_queries(connection, queries: list[dict]) -> int:
     """Raise relevant query topics to priority without reviving used/rejected topics."""
     changed = 0
@@ -155,42 +171,94 @@ def build_report(
     ]
     quick_wins.sort(key=lambda item: (-item["impressions"], item["position"]))
     summary = [
-        f"Search Console weekly report ({start.isoformat()} through {today.isoformat()})",
+        "ISRAINSOLS | ORGANIC SEARCH PERFORMANCE",
+        f"Search Console report | {start.isoformat()} - {today.isoformat()} (28 days)",
         "",
-        "Top queries:",
+        "EXECUTIVE SUMMARY",
+        f"Search queries tracked: {len(query_rows):,} | Landing pages tracked: {len(page_rows):,}",
+        (
+            f"Brand performance: {brand_totals['clicks']:,} clicks | "
+            f"{brand_totals['impressions']:,} impressions | {brand_totals['ctr']:.1%} CTR | "
+            f"average position {brand_totals['position']:.1f}"
+        ),
+        "",
+        "BRANDED SEARCH PERFORMANCE",
     ]
-    summary.extend(
-        f"- {item['query']}: {item['clicks']} clicks, {item['impressions']} impressions, "
-        f"position {item['position']:.1f}"
-        for item in query_rows[:10]
-    )
-    summary.extend(["", "Branded query totals:"])
     if brand_queries:
-        summary.append(
-            f"- {brand_totals['clicks']} clicks, {brand_totals['impressions']} impressions, "
-            f"{brand_totals['ctr']:.1%} CTR, position {brand_totals['position']:.1f}"
+        summary.extend(
+            _render_table(
+                ("Search query", "Clicks", "Impressions", "CTR", "Avg. position"),
+                [
+                    (
+                        item["query"],
+                        f"{item['clicks']:,}",
+                        f"{item['impressions']:,}",
+                        f"{item['ctr']:.1%}",
+                        f"{item['position']:.1f}",
+                    )
+                    for item in brand_queries
+                ],
+            )
         )
     else:
-        summary.append("- No branded queries recorded in this period.")
-    summary.append("Branded queries by spelling:")
-    summary.extend(
-        f"- {item['query']}: {item['clicks']} clicks, {item['impressions']} impressions, "
-        f"{item['ctr']:.1%} CTR, position {item['position']:.1f}"
-        for item in brand_queries
-    )
-    summary.extend(["", "Top pages:"])
-    summary.extend(
-        f"- {item['url']}: {item['clicks']} clicks, {item['impressions']} impressions, "
-        f"position {item['position']:.1f}"
-        for item in page_rows[:10]
-    )
-    summary.extend(["", "Page position buckets:"])
-    summary.extend(f"- {bucket}: {count} page(s)" for bucket, count in buckets.items())
-    summary.extend(["", "Quick wins (positions 4-20 with impressions):"])
-    summary.extend(
-        f"- {item['query']}: position {item['position']:.1f}, {item['impressions']} impressions"
-        for item in quick_wins[:10]
-    )
+        summary.append("No branded queries were recorded in this reporting period.")
+    summary.extend(["", "TOP SEARCH QUERIES"])
+    if query_rows:
+        summary.extend(
+            _render_table(
+                ("Search query", "Clicks", "Impressions", "CTR", "Avg. position"),
+                [
+                    (
+                        item["query"],
+                        f"{item['clicks']:,}",
+                        f"{item['impressions']:,}",
+                        f"{item['ctr']:.1%}",
+                        f"{item['position']:.1f}",
+                    )
+                    for item in query_rows[:10]
+                ],
+            )
+        )
+    else:
+        summary.append("No query data was available for this period.")
+    summary.extend(["", "TOP LANDING PAGES"])
+    if page_rows:
+        summary.extend(
+            _render_table(
+                ("Landing page", "Clicks", "Impressions", "CTR", "Avg. position"),
+                [
+                    (
+                        item["url"],
+                        f"{item['clicks']:,}",
+                        f"{item['impressions']:,}",
+                        f"{item['ctr']:.1%}",
+                        f"{item['position']:.1f}",
+                    )
+                    for item in page_rows[:10]
+                ],
+            )
+        )
+    else:
+        summary.append("No landing-page data was available for this period.")
+    summary.extend(["", "RANKING DISTRIBUTION"])
+    summary.extend(f"Positions {bucket}: {count:,} page(s)" for bucket, count in buckets.items())
+    summary.extend(["", "CONTENT OPPORTUNITIES"])
+    if quick_wins:
+        summary.extend(
+            _render_table(
+                ("Search query", "Impressions", "Avg. position"),
+                [
+                    (
+                        item["query"],
+                        f"{item['impressions']:,}",
+                        f"{item['position']:.1f}",
+                    )
+                    for item in quick_wins[:10]
+                ],
+            )
+        )
+    else:
+        summary.append("No non-brand queries in positions 4-20 were found.")
     summary_text = "\n".join(summary) + "\n"
     if not dry_run:
         folder = Path(output_dir)
