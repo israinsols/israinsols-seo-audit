@@ -10,7 +10,13 @@ from pathlib import Path
 from config import NICHE_CLUSTERS
 from topic_finder import matches_cluster
 
-BRAND_QUERY_TERMS = ("israinsols", "israin sols", "israin solutions")
+BRAND_QUERY_TERMS = (
+    "israinsols.com",
+    "israinsols",
+    "israin sols",
+    "israinsolutions",
+    "israin solutions",
+)
 
 
 def _aggregate(rows: list, key: str) -> list[dict]:
@@ -127,7 +133,11 @@ def build_report(
         buckets[_position_bucket(item["position"])] += 1
     quick_wins = [
         item for item in query_rows
-        if item["impressions"] > 0 and 4 <= item["position"] <= 20
+        if (
+            item["impressions"] > 0
+            and 4 <= item["position"] <= 20
+            and not _is_brand_query(item["query"])
+        )
     ]
     quick_wins.sort(key=lambda item: (-item["impressions"], item["position"]))
     summary = [

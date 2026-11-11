@@ -285,19 +285,24 @@ def test_report_writes_csv_text_buckets_and_prioritizes_topics(tmp_path):
                        impressions=impressions, position=position)
     _insert_metric(connection, "", "Israin Solutions", today.isoformat(),
                    clicks=3, impressions=60, position=2)
+    _insert_metric(connection, "", "IsrainSols", today.isoformat(),
+                   clicks=2, impressions=40, position=3)
+    _insert_metric(connection, "", "israinsols.com", today.isoformat(),
+                   clicks=1, impressions=20, position=4)
+    _insert_metric(connection, "", "IsrainSolutions", today.isoformat(),
+                   clicks=1, impressions=10, position=5)
     connection.commit()
     report = build_report(connection, output_dir=tmp_path / "reports", as_of=today)
     assert report["buckets"] == {"1-3": 1, "4-10": 1, "11-20": 1, "21+": 1}
     assert len(report["quick_wins"]) == 2
     assert report["topics_prioritized"] == 2
     assert "Top queries:" in report["summary"] and "Top pages:" in report["summary"]
-    assert report["brand_queries"] == [{
-        "query": "Israin Solutions",
-        "clicks": 3,
-        "impressions": 60,
-        "ctr": 0.05,
-        "position": 2.0,
-    }]
+    assert {item["query"] for item in report["brand_queries"]} == {
+        "Israin Solutions",
+        "IsrainSols",
+        "israinsols.com",
+        "IsrainSolutions",
+    }
     assert "Branded queries:" in report["summary"]
     assert "Israin Solutions: 3 clicks, 60 impressions, 5.0% CTR, position 2.0" in report["summary"]
     with open(report["csv_path"], newline="", encoding="utf-8-sig") as file:
