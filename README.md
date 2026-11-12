@@ -92,6 +92,20 @@ does not guarantee impressions or rankings. The text report is formatted as an
 executive summary with KPI highlights, aligned query/page tables, ranking
 distribution, and non-brand content opportunities.
 
+To audit exported Search Console coverage and performance ZIPs without API
+credentials, run:
+
+```powershell
+python main.py --gsc-export-audit path\to\coverage.zip path\to\performance.zip
+```
+
+This prints and saves a dated report under `reports/`. It highlights indexed
+URL changes, issue counts, visible queries/pages, and human-review priorities.
+The performance export's selected time range is shown explicitly; short windows
+are not treated as trend evidence. The command never changes live pages or
+indexing settings. Use `--gsc-audit-output path\to\audit.txt` to choose another
+report location.
+
 ## Business facts and duplicate-page prevention
 
 Fill in verified details in `business_facts.md` only. If those fields are blank,
@@ -136,6 +150,7 @@ python main.py --research
 python main.py --generate --limit 2
 python main.py --refresh
 python main.py --report
+python main.py --gsc-export-audit path\to\coverage.zip path\to\performance.zip
 python main.py --share
 python main.py --cleanup-report path\to\not-indexed.csv
 python main.py --all

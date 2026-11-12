@@ -15,6 +15,7 @@ import db
 from config import KNOWN_EXISTING_PAGES, NICHE_CLUSTERS, PRIORITY_TOPICS, Settings, load_settings
 from cleanup_report import classify_url, create_cleanup_report
 from gsc_client import GSCClient
+from gsc_export_audit import analyze_exports, format_audit, write_audit
 from images import create_featured_image
 from notifier import TelegramNotifier
 from interlinker import add_internal_links
@@ -514,6 +515,17 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--generate", action="store_true", help="Generate quality-checked drafts.")
     parser.add_argument("--refresh", action="store_true", help="Create briefs for published posts needing updates.")
     parser.add_argument("--report", action="store_true", help="Write a Search Console CSV and text report.")
+    parser.add_argument(
+        "--gsc-export-audit",
+        nargs=2,
+        metavar=("COVERAGE_ZIP", "PERFORMANCE_ZIP"),
+        help="Analyze exported Search Console coverage and performance ZIP files.",
+    )
+    parser.add_argument(
+        "--gsc-audit-output",
+        metavar="TXT",
+        help="Optional output path for --gsc-export-audit.",
+    )
     parser.add_argument("--share", action="store_true", help="Share eligible published posts on enabled platforms.")
     parser.add_argument("--cleanup-report", metavar="CSV", help="Classify a Search Console not-indexed CSV.")
     parser.add_argument("--all", action="store_true", help="Run research, draft, refresh, report, and share steps.")
@@ -523,9 +535,33 @@ def main(argv: list[str] | None = None) -> int:
     if args.limit is not None and args.limit < 0:
         parser.error("--limit cannot be negative.")
     if not any((args.check_wp, args.check_gemini, args.research, args.generate,
-                args.refresh, args.report, args.share, args.cleanup_report, args.all)):
+                args.refresh, args.report, args.share, args.cleanup_report,
+                args.gsc_export_audit, args.all)):
         parser.print_help()
         return 0
+
+    if args.gsc_export_audit:
+        if any((
+            args.check_wp, args.check_gemini, args.research, args.generate,
+            args.refresh, args.report, args.share, args.cleanup_report, args.all,
+        )):
+            parser.error("--gsc-export-audit cannot be combined with other actions.")
+        if args.dry_run:
+            parser.error("--dry-run cannot be combined with --gsc-export-audit.")
+        try:
+            audit = analyze_exports(*args.gsc_export_audit)
+            output_path = args.gsc_audit_output or str(
+                Path("reports") / f"search_console_audit_{audit['coverage']['end_date']}.txt"
+            )
+            written = write_audit(*args.gsc_export_audit, output_path)
+        except (FileNotFoundError, OSError, ValueError) as exc:
+            print(f"Search Console export audit failed: {exc}", file=sys.stderr)
+            return 1
+        print(format_audit(audit), end="")
+        print(f"Report saved to: {written}")
+        return 0
+    if args.gsc_audit_output:
+        parser.error("--gsc-audit-output requires --gsc-export-audit.")
 
     settings = load_settings()
     configure_logging(settings.log_path)
