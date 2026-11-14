@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
+from pathlib import Path
 
 import pytest
 import requests
@@ -104,6 +105,33 @@ def test_jwt_uploads_featured_image_alt_taxonomies_and_creates_draft(settings, t
     assert payload["categories"] == [3]
     assert payload["tags"] == [8]
     assert payload["meta"]["rank_math_focus_keyword"] == "website cost"
+
+
+def test_relative_featured_image_path_is_not_prefixed_with_drafts_twice(
+    settings, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    drafts = Path("drafts")
+    drafts.mkdir()
+    image = drafts / "featured.png"
+    image.write_bytes(b"png from relative drafts path")
+    relative_settings = replace(settings, drafts_dir=drafts)
+    session = FakeSession([
+        FakeResponse(payload={"token": "jwt-token"}),
+        FakeResponse(payload={"id": 12, "source_url": "https://israinsols.com/image.png"}),
+        FakeResponse(payload={"id": 12}),
+        FakeResponse(payload={"id": 50, "status": "draft"}),
+    ])
+
+    result = WordPressClient(relative_settings, session=session).create_draft({
+        "title": "Relative image path guide",
+        "featured_image_path": str(image),
+        "image_alt": "A relevant illustration",
+    })
+
+    assert result.post_id == 50
+    upload = next(call for call in session.calls if call[1].endswith("/wp/v2/media"))
+    assert upload[2]["data"] == b"png from relative drafts path"
 
 
 def test_auto_publish_sends_live_status_and_requires_wordpress_confirmation(settings):

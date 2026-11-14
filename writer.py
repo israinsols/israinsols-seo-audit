@@ -293,10 +293,20 @@ class GeminiWriter:
                         f"Gemini returned invalid article JSON after {attempt + 1} attempts: "
                         f"{_redact(str(exc), self.api_key)}"
                     ) from exc
+                except requests.Timeout as exc:
+                    errors.append(_redact(str(exc), self.api_key))
+                    if attempt < self.max_retries:
+                        self.sleep(self.backoff_seconds * (2 ** attempt))
+                        logging.warning("Gemini request timed out; retrying attempt %s.", attempt + 2)
+                        continue
+                    raise WriterError(
+                        f"Gemini request timed out after {attempt + 1} attempts."
+                    ) from exc
                 except requests.RequestException as exc:
                     errors.append(_redact(str(exc), self.api_key))
                     raise WriterError(
-                        f"Gemini request failed ({type(exc).__name__}); network errors are not retried."
+                        f"Gemini request failed ({type(exc).__name__}); "
+                        "non-timeout network errors are not retried."
                     ) from exc
             else:
                 # Retryable responses were exhausted; do not switch models for them.

@@ -3,8 +3,9 @@
 The engine researches topics, prepares articles, and creates WordPress drafts or
 local files. Automatic publishing is disabled by default (`AUTO_PUBLISH=False`).
 When explicitly enabled, it can publish to WordPress after the configured
-quality checks. No click automation, artificial traffic, proxies, or paid SEO
-services are used.
+quality checks. For this project, keep automatic publishing off: every article
+must be reviewed and manually published by a human. No click automation,
+artificial traffic, proxies, or paid SEO services are used.
 
 The default research region is Pakistan (`REGION=PK`), the audience is small
 businesses and startups in Pakistan, and the daily draft cap is one. Topics are
@@ -191,19 +192,17 @@ Example (edit the absolute project path and local time zone):
 
 ### GitHub Actions
 
-`.github/workflows/daily.yml` is configured to publish one article per day
-after quality checks. Add `GEMINI_API_KEY` (already configured in this
-repository), `WP_USER`, and `WP_PASSWORD` in **Settings → Secrets and variables
-→ Actions**. The WordPress values must belong to the dedicated Editor account;
-the workflow verifies JWT connection before generating content and fails
-without publishing if credentials are missing or WordPress rejects them.
-Never put credentials in the workflow file or commit `.env`.
+`.github/workflows/daily.yml` is configured to create at most one WordPress
+draft per day for human review; it does not publish articles. Add
+`GEMINI_API_KEY`, `WP_USER`, and `WP_PASSWORD` in **Settings → Secrets and
+variables → Actions**. The WordPress values must belong to the dedicated Editor
+account. The workflow verifies the JWT connection and confirms the generated
+post remains a draft. Never put credentials in the workflow file or commit
+`.env`.
 
-The workflow sets `AUTO_PUBLISH=True`, which is an intentional exception to
-the default human-reviewed draft flow. Articles that pass automated checks are
-published live without manual review. This can publish inaccurate or
-insufficiently verified claims; use it only if that risk is accepted. Other
-local runs remain draft-only unless `AUTO_PUBLISH=True` is explicitly set.
+The workflow explicitly sets `AUTO_PUBLISH=False` and verifies that the
+WordPress post remains a draft. A human must review and publish it manually.
+Local runs should also keep `AUTO_PUBLISH=False`.
 GSC OAuth, reports, refresh, and social sharing do not run in GitHub Actions.
 Search Console OAuth runs locally unless an optional service account is
 explicitly configured.

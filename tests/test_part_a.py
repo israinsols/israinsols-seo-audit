@@ -164,9 +164,28 @@ def test_rate_limit_and_server_error_retry_but_do_not_fallback(settings):
     assert sleeps == [0.1, 0.2]
 
 
-def test_network_error_does_not_retry(settings):
+def test_network_timeout_retries_with_backoff(settings):
+    sleeps = []
+    session = FakeSession([
+        requests.Timeout("temporary read timeout"),
+        _article_response(),
+    ])
+    result = GeminiWriter(
+        settings,
+        api_key="test-key",
+        session=session,
+        max_retries=1,
+        backoff_seconds=0.25,
+        sleep=sleeps.append,
+    ).generate("website cost", "web-development")
+    assert result["title"] == ARTICLE["title"]
+    assert len(session.calls) == 2
+    assert sleeps == [0.25]
+
+
+def test_connection_error_does_not_retry(settings):
     session = FakeSession([requests.ConnectionError("network unavailable")])
-    with pytest.raises(WriterError, match="network errors are not retried"):
+    with pytest.raises(WriterError, match="non-timeout network errors are not retried"):
         GeminiWriter(settings, api_key="test-key", session=session, max_retries=3).generate(
             "website cost", "web-development"
         )

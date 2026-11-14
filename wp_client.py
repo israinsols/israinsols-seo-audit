@@ -350,7 +350,7 @@ class WordPressClient:
             image = article.get("featured_image_path") or article.get("featured_image")
             if image:
                 image_path = Path(image)
-                if not image_path.is_absolute():
+                if not image_path.is_absolute() and not image_path.is_file():
                     image_path = self.settings.drafts_dir / image_path
                 media_id = self.upload_media(image_path, str(article.get("image_alt", "")))
             else:
