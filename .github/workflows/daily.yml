@@ -24,13 +24,13 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
-      - name: Require WordPress draft credentials
+      - name: Require WordPress publishing credentials
         env:
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
         run: |
           if [ -z "$WP_USER" ] || [ -z "$WP_PASSWORD" ]; then
-            echo "::error::Set WP_USER and WP_PASSWORD in repository Actions secrets to create WordPress drafts."
+            echo "::error::Set WP_USER and WP_PASSWORD in repository Actions secrets before enabling live publication."
             exit 1
           fi
       - name: Verify WordPress connection
@@ -40,18 +40,18 @@ jobs:
           WP_AUTH_MODE: jwt
           REQUEST_TIMEOUT: "90"
         run: python main.py --check-wp
-      - name: Generate one article draft for human review
+      - name: Generate and publish one article
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           WP_AUTH_MODE: jwt
-          AUTO_PUBLISH: "False"
+          AUTO_PUBLISH: "True"
           POSTS_PER_DAY: "1"
           REGION: PK
           REQUEST_TIMEOUT: "90"
         run: python main.py --generate --limit 1
-      - name: Verify a WordPress draft was created
+      - name: Verify a live article was published
         env:
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
@@ -68,18 +68,18 @@ jobs:
           row = connection.execute(
               "SELECT a.wp_post_id FROM articles a "
               "JOIN topics t ON t.id = a.topic_id "
-              "WHERE a.status = 'draft' AND a.wp_post_id IS NOT NULL "
+              "WHERE a.status = 'published' AND a.wp_post_id IS NOT NULL "
               "AND t.status = 'used' "
               "AND substr(a.created_at, 1, 10) = date('now') "
               "ORDER BY a.id DESC LIMIT 1"
           ).fetchone()
           connection.close()
           if row is None:
-              sys.exit("No WordPress draft was recorded today.")
+              sys.exit("No live WordPress article was recorded today.")
           post = WordPressClient(load_settings()).get_post(row[0])
-          if post.get("status") != "draft":
-              sys.exit(f"Expected WordPress draft status; received {post.get('status')!r}.")
-          print(f"WordPress draft {row[0]} is ready for human review.")
+          if post.get("status") != "publish":
+              sys.exit(f"Expected WordPress published status; received {post.get('status')!r}.")
+          print(f"WordPress article {row[0]} is live.")
           sys.exit(0)
           PY
       - name: Upload local fallback files if present

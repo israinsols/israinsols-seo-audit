@@ -1,10 +1,10 @@
 # IsrainSols SEO Traffic Engine
 
 The engine researches topics, prepares articles, and creates WordPress drafts or
-local files. Automatic publishing is disabled by default (`AUTO_PUBLISH=False`).
-When explicitly enabled, it can publish to WordPress after the configured
-quality checks. For this project, keep automatic publishing off: every article
-must be reviewed and manually published by a human. No click automation,
+local files. Local automatic publishing is disabled by default
+(`AUTO_PUBLISH=False`). The scheduled GitHub Actions workflow is configured to
+publish at most one article per day after the configured quality checks. This
+does not include human verification of every claim. No click automation,
 artificial traffic, proxies, or paid SEO services are used.
 
 The default research region is Pakistan (`REGION=PK`), the audience is small
@@ -192,17 +192,17 @@ Example (edit the absolute project path and local time zone):
 
 ### GitHub Actions
 
-`.github/workflows/daily.yml` is configured to create at most one WordPress
-draft per day for human review; it does not publish articles. Add
+`.github/workflows/daily.yml` is configured to publish at most one WordPress
+article per day after the automated quality checks. Add
 `GEMINI_API_KEY`, `WP_USER`, and `WP_PASSWORD` in **Settings → Secrets and
 variables → Actions**. The WordPress values must belong to the dedicated Editor
 account. The workflow verifies the JWT connection and confirms the generated
-post remains a draft. Never put credentials in the workflow file or commit
-`.env`.
+post is public. Because this bypasses manual claim review, the automated
+workflow can publish an unverified claim if the checks miss it. Never put
+credentials in the workflow file or commit `.env`.
 
-The workflow explicitly sets `AUTO_PUBLISH=False` and verifies that the
-WordPress post remains a draft. A human must review and publish it manually.
-Local runs should also keep `AUTO_PUBLISH=False`.
+The workflow explicitly sets `AUTO_PUBLISH=True`; local runs remain draft-only
+unless `AUTO_PUBLISH=True` is explicitly set.
 GSC OAuth, reports, refresh, and social sharing do not run in GitHub Actions.
 Search Console OAuth runs locally unless an optional service account is
 explicitly configured.
